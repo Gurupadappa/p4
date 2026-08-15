@@ -9,6 +9,7 @@ interface FindingCardProps {
   expanded: boolean;
   onToggle: () => void;
   onApprove: (finding: Finding) => Promise<void>;
+  onReject: (finding: Finding) => Promise<void>;
 }
 
 function VerificationBadge({ finding }: { finding: Finding }) {
@@ -53,6 +54,14 @@ function VerdictStamp({ finding }: { finding: Finding }) {
       </span>
     );
   }
+  if (finding.approval_status === "rejected") {
+    return (
+      <span className="stamp" style={{ color: "var(--ink-muted)" }}>
+        <span className="stamp-dot" />
+        Not a vulnerability — reviewed
+      </span>
+    );
+  }
   const color = severityColor(finding.severity);
   return (
     <span className="stamp" style={{ color }}>
@@ -62,9 +71,11 @@ function VerdictStamp({ finding }: { finding: Finding }) {
   );
 }
 
-export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingCardProps) {
+export function FindingCard({ finding, expanded, onToggle, onApprove, onReject }: FindingCardProps) {
   const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const confidencePct = Math.round((finding.confidence || 0) * 100);
+  const rejected = finding.approval_status === "rejected";
 
   const handleApprove = async (e: MouseEvent) => {
     e.stopPropagation();
@@ -76,8 +87,24 @@ export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingC
     }
   };
 
+  const handleReject = async (e: MouseEvent) => {
+    e.stopPropagation();
+    setRejecting(true);
+    try {
+      await onReject(finding);
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   return (
-    <div className="rise-in surface overflow-hidden rounded-lg" style={{ borderLeft: `3px solid ${severityColor(finding.severity)}` }}>
+    <div
+      className="rise-in surface overflow-hidden rounded-lg"
+      style={{
+        borderLeft: `3px solid ${rejected ? "var(--border)" : severityColor(finding.severity)}`,
+        opacity: rejected ? 0.55 : 1,
+      }}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -99,7 +126,7 @@ export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingC
         </div>
         {finding.dedup_group_id && (
           <span
-            className="font-mono hidden shrink-0 rounded-full border px-2 py-0.5 text-[0.66rem] sm:inline-block"
+            className="font-mono hidden shrink-0 rounded-full border px-2 py-0.5 text-[0.74rem] sm:inline-block"
             style={{ borderColor: "var(--gold)", color: "var(--gold)" }}
             title="Same vulnerability class merged across repos"
           >
@@ -108,7 +135,7 @@ export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingC
         )}
         {finding.sla_breached && (
           <span
-            className="font-mono hidden shrink-0 rounded-full border px-2 py-0.5 text-[0.66rem] sm:inline-block"
+            className="font-mono hidden shrink-0 rounded-full border px-2 py-0.5 text-[0.74rem] sm:inline-block"
             style={{ borderColor: "var(--status-warning)", color: "var(--status-warning)" }}
           >
             ⏱ SLA {formatAge(finding.age_seconds)}
@@ -167,11 +194,20 @@ export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingC
                   <button
                     type="button"
                     onClick={handleApprove}
-                    disabled={approving}
+                    disabled={approving || rejecting}
                     className="cursor-pointer rounded-md border-none px-3.5 py-2 text-[0.8rem] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
                     style={{ background: "var(--brand)", color: "var(--brand-ink)" }}
                   >
                     {approving ? "Generating fix…" : "Approve & generate fix"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={approving || rejecting}
+                    className="cursor-pointer rounded-md px-3.5 py-2 text-[0.8rem] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ background: "transparent", color: "var(--ink-secondary)", border: "1.5px solid var(--border-strong)" }}
+                  >
+                    {rejecting ? "Marking…" : "Not a vulnerability"}
                   </button>
                   <span className="ink-muted text-[0.74rem]">
                     Human approval required before any fix is generated or applied.
@@ -182,6 +218,12 @@ export function FindingCard({ finding, expanded, onToggle, onApprove }: FindingC
                 <span className="stamp" style={{ color: "var(--accent)" }}>
                   <span className="stamp-dot" />
                   Approved by human reviewer
+                </span>
+              )}
+              {rejected && (
+                <span className="stamp" style={{ color: "var(--ink-muted)" }}>
+                  <span className="stamp-dot" />
+                  Not a vulnerability — reviewed
                 </span>
               )}
             </div>

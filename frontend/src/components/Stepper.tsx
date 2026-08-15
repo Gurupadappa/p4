@@ -84,7 +84,7 @@ export function Stepper({ run, findings }: StepperProps) {
                   {i + 1}
                 </div>
                 <div className="text-[0.8rem] font-medium">{LABELS[s]}</div>
-                <div className="ink-muted font-mono h-3.5 text-[0.68rem]">
+                <div className="ink-muted font-mono h-3.5 text-[0.76rem]">
                   {run ? stageMeta(s, findings, run.error ? undefined : run.stage) : ""}
                 </div>
               </div>

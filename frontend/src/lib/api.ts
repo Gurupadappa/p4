@@ -21,6 +21,8 @@ export const api = {
       body: JSON.stringify({ repos }),
     }),
 
+  listRuns: () => request<{ runs: PipelineRun[] }>("/api/runs"),
+
   getRun: (runId: string) => request<PipelineRun>(`/api/runs/${runId}`),
 
   getFindings: (runId: string) =>
@@ -30,6 +32,9 @@ export const api = {
 
   approveFinding: (findingId: string) =>
     request<Finding>(`/api/findings/${findingId}/approve`, { method: "POST" }),
+
+  rejectFinding: (findingId: string) =>
+    request<Finding>(`/api/findings/${findingId}/reject`, { method: "POST" }),
 
   syncDefectDojo: (runId: string) =>
     request<DefectDojoResult>(`/api/runs/${runId}/defectdojo`, { method: "POST" }),

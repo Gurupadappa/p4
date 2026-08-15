@@ -2,7 +2,7 @@ export const STAGES = ["prepare", "scan", "validate", "prove"] as const;
 export type PipelineStage = (typeof STAGES)[number];
 export type Stage = PipelineStage | "done";
 export type Verdict = "pending" | "confirmed" | "false_positive";
-export type ApprovalStatus = "not_applicable" | "awaiting_approval" | "approved";
+export type ApprovalStatus = "not_applicable" | "awaiting_approval" | "approved" | "rejected";
 
 export interface Finding {
   id: string;
@@ -38,6 +38,15 @@ export interface Finding {
   sla_breached: boolean;
 }
 
+export interface RunSummary {
+  total: number;
+  confirmed: number;
+  false_positive: number;
+  awaiting_approval: number;
+  approved: number;
+  rejected: number;
+}
+
 export interface PipelineRun {
   id: string;
   repos: string[];
@@ -45,6 +54,7 @@ export interface PipelineRun {
   started_at: number;
   finished_at: number | null;
   error: string | null;
+  summary?: RunSummary;
 }
 
 export interface MetricSet {

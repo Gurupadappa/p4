@@ -6,13 +6,14 @@ import { RemediationPanel } from "../components/RemediationPanel";
 import { Toast } from "../components/Toast";
 import { useToast } from "../hooks/useToast";
 import { useScanRun } from "../hooks/useScanRun";
+import { useFindingActions } from "../hooks/useFindingActions";
 import { api } from "../lib/api";
-import type { Finding } from "../types";
 
 export function Dashboard() {
   const { message, showToast } = useToast();
-  const { run, findings, report, starting, running, startScan, applyApprovedFinding } =
+  const { run, findings, report, starting, running, startScan, applyFindingUpdate } =
     useScanRun(showToast);
+  const { handleApprove, handleReject } = useFindingActions(applyFindingUpdate, showToast);
 
   const [repos, setRepos] = useState<string[]>([]);
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set());
@@ -44,19 +45,6 @@ export function Dashboard() {
     }
     startScan(selected);
   }, [selectedRepos, showToast, startScan]);
-
-  const handleApprove = useCallback(
-    async (finding: Finding) => {
-      try {
-        const updated = await api.approveFinding(finding.id);
-        applyApprovedFinding(updated);
-        showToast("Fix approved and generated");
-      } catch (e) {
-        showToast(`Approval failed: ${(e as Error).message}`);
-      }
-    },
-    [applyApprovedFinding, showToast],
-  );
 
   return (
     <main className="flex-1" style={{ background: "var(--page)" }}>
@@ -111,7 +99,7 @@ export function Dashboard() {
         <div className="flex flex-col gap-8">
           <Stepper run={run} findings={findings} />
           <ComparisonPanel report={report} findings={findings} />
-          <FindingsList findings={findings} onApprove={handleApprove} />
+          <FindingsList findings={findings} onApprove={handleApprove} onReject={handleReject} />
           {run && (
             <RemediationPanel
               canSync={Boolean(run)}

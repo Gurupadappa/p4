@@ -78,5 +78,14 @@ def approve_and_fix(finding_id: str) -> None:
     store.save_finding(finding)
 
 
+def reject_finding(finding_id: str) -> None:
+    """Human-review gate: reviewer marked this finding as not a vulnerability. No fix is generated."""
+    finding = store.get_finding(finding_id)
+    if finding is None:
+        raise ValueError(f"unknown finding {finding_id}")
+    finding.approval_status = ApprovalStatus.REJECTED
+    store.save_finding(finding)
+
+
 def new_run_id() -> str:
     return new_id("run")

@@ -8,6 +8,7 @@ interface NavbarProps {
 const LINKS = [
   { to: "/", label: "Home", end: true },
   { to: "/dashboard", label: "Dashboard", end: false },
+  { to: "/history", label: "History", end: false },
 ];
 
 export function Navbar({ theme, onToggleTheme }: NavbarProps) {

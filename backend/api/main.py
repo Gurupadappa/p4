@@ -15,7 +15,7 @@ from starlette.types import Scope
 from backend.core import store
 from backend.core.defectdojo import sync_to_defectdojo
 from backend.core.evaluation import compute_report
-from backend.core.pipeline import approve_and_fix, new_run_id, run_pipeline
+from backend.core.pipeline import approve_and_fix, new_run_id, reject_finding, run_pipeline
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 SAMPLE_REPOS_DIR = REPO_ROOT / "sample_repos"
@@ -71,7 +71,12 @@ def start_scan(req: ScanRequest):
 
 @app.get("/api/runs")
 def list_runs():
-    return {"runs": [r.to_dict() for r in store.list_runs()]}
+    runs = []
+    for r in store.list_runs():
+        d = r.to_dict()
+        d["summary"] = store.run_summary(r.id)
+        runs.append(d)
+    return {"runs": runs}
 
 
 @app.get("/api/runs/{run_id}")
@@ -104,6 +109,16 @@ def defectdojo_sync(run_id: str):
 def approve_finding(finding_id: str):
     try:
         approve_and_fix(finding_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    finding = store.get_finding(finding_id)
+    return finding.to_dict()
+
+
+@app.post("/api/findings/{finding_id}/reject")
+def reject_finding_endpoint(finding_id: str):
+    try:
+        reject_finding(finding_id)
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
     finding = store.get_finding(finding_id)

@@ -26,6 +26,7 @@ class ApprovalStatus(str, Enum):
     NOT_APPLICABLE = "not_applicable"
     AWAITING_APPROVAL = "awaiting_approval"
     APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 SLA_BREACH_SECONDS = 72 * 3600  # 72h remediation SLA for confirmed criticals/highs

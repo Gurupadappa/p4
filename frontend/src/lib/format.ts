@@ -8,3 +8,12 @@ export function formatAge(seconds: number): string {
 export function firstSentence(text: string, fallback: string): string {
   return text.split(/\.\s/)[0] || fallback;
 }
+
+export function formatDateTime(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}

@@ -56,11 +56,11 @@ export function useScanRun(onError: (message: string) => void) {
     [poll, onError],
   );
 
-  const applyApprovedFinding = useCallback((updated: Finding) => {
+  const applyFindingUpdate = useCallback((updated: Finding) => {
     setFindings((current) => current.map((f) => (f.id === updated.id ? updated : f)));
   }, []);
 
   const running = run !== null && run.stage !== "done" && !run.error;
 
-  return { run, findings, report, starting, running, startScan, applyApprovedFinding };
+  return { run, findings, report, starting, running, startScan, applyFindingUpdate };
 }

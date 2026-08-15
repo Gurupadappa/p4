@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import type { Finding } from "../types";
 import { FindingCard } from "./FindingCard";
 
-type Filter = "all" | "confirmed" | "awaiting_approval" | "approved" | "false_positive";
+type Filter = "all" | "confirmed" | "awaiting_approval" | "approved" | "rejected" | "false_positive";
 
 const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: "all", label: "All" },
   { key: "confirmed", label: "Confirmed" },
   { key: "awaiting_approval", label: "Awaiting approval" },
   { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Not a vulnerability" },
   { key: "false_positive", label: "Suppressed FPs" },
 ];
 
@@ -22,6 +23,8 @@ function matches(f: Finding, filter: Filter): boolean {
       return f.approval_status === "awaiting_approval";
     case "approved":
       return f.approval_status === "approved";
+    case "rejected":
+      return f.approval_status === "rejected";
     default:
       return true;
   }
@@ -30,9 +33,10 @@ function matches(f: Finding, filter: Filter): boolean {
 interface FindingsListProps {
   findings: Finding[];
   onApprove: (finding: Finding) => Promise<void>;
+  onReject: (finding: Finding) => Promise<void>;
 }
 
-export function FindingsList({ findings, onApprove }: FindingsListProps) {
+export function FindingsList({ findings, onApprove, onReject }: FindingsListProps) {
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -41,6 +45,9 @@ export function FindingsList({ findings, onApprove }: FindingsListProps) {
       .filter((f) => matches(f, filter))
       .slice()
       .sort((a, b) => {
+        const aRejected = a.approval_status === "rejected";
+        const bRejected = b.approval_status === "rejected";
+        if (aRejected !== bRejected) return aRejected ? 1 : -1;
         if (a.sla_breached !== b.sla_breached) return a.sla_breached ? -1 : 1;
         const aConfirmed = a.verdict === "confirmed";
         const bConfirmed = b.verdict === "confirmed";
@@ -103,6 +110,7 @@ export function FindingsList({ findings, onApprove }: FindingsListProps) {
             expanded={expanded.has(f.id)}
             onToggle={() => toggle(f.id)}
             onApprove={onApprove}
+            onReject={onReject}
           />
         ))}
       </div>

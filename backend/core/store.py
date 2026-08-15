@@ -123,3 +123,15 @@ def get_finding(finding_id: str) -> Finding | None:
 def list_findings(run_id: str) -> list[Finding]:
     rows = _conn.execute("SELECT data FROM findings WHERE run_id = ?", (run_id,)).fetchall()
     return [_finding_from_row(json.loads(r[0])) for r in rows]
+
+
+def run_summary(run_id: str) -> dict:
+    findings = list_findings(run_id)
+    return {
+        "total": len(findings),
+        "confirmed": sum(1 for f in findings if f.verdict == ValidationVerdict.CONFIRMED),
+        "false_positive": sum(1 for f in findings if f.verdict == ValidationVerdict.FALSE_POSITIVE),
+        "awaiting_approval": sum(1 for f in findings if f.approval_status == ApprovalStatus.AWAITING_APPROVAL),
+        "approved": sum(1 for f in findings if f.approval_status == ApprovalStatus.APPROVED),
+        "rejected": sum(1 for f in findings if f.approval_status == ApprovalStatus.REJECTED),
+    }
