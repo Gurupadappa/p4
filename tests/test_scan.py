@@ -25,7 +25,57 @@ def _fake_semgrep_result(file_path: str, line: int) -> dict:
         ]
     }
 
+def test_scan_repo_detects_sql_injection_and_extracts_ground_truth_tag(tmp_path, monkeypatch):
+    target = tmp_path / "app.py"
+    target.write_text(
+        "from flask import request\n"
+        "import sqlite3\n\n"
+        "# --- FLASK-SQLI-1 ---\n"
+        "def search():\n"
+        "    customer = request.args.get('customer')\n"
+        "    query = \"SELECT * FROM users WHERE name = '\" + customer + \"'\"\n"
+        "    conn = sqlite3.connect('test.db')\n"
+        "    conn.execute(query)\n",
+        encoding="utf-8",
+    )
 
+    raw = {
+        "results": [
+            {
+                "check_id": "python-taint-rules.python-sql-injection",
+                "path": str(target),
+                "start": {"line": 7},
+                "extra": {
+                    "severity": "ERROR",
+                    "message": "User input is used in a SQL query.",
+                    "metadata": {"vuln_class": "injection"},
+                },
+            }
+        ]
+    }
+
+    def fake_run(*args, **kwargs):
+        return SimpleNamespace(
+            stdout=json.dumps(raw),
+            stderr="",
+            returncode=0,
+        )
+
+    monkeypatch.setattr(scan_module.subprocess, "run", fake_run)
+
+    findings = scan_module.scan_repo("run_1", "vuln_flask_api", str(tmp_path))
+
+    assert len(findings) == 1
+
+    f = findings[0]
+
+    assert f.repo == "vuln_flask_api"
+    assert f.rule_id == "python-sql-injection"
+    assert f.vuln_class == "injection"
+    assert f.severity == "ERROR"
+    assert f.verdict == ValidationVerdict.PENDING
+    assert f.ground_truth_tag == "FLASK-SQLI-1"
+    assert ">>" in f.code_snippet
 def test_scan_repo_parses_finding_and_extracts_ground_truth_tag(tmp_path, monkeypatch):
     target = tmp_path / "app.py"
     target.write_text(
