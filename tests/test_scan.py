@@ -73,3 +73,31 @@ def test_scan_repo_returns_empty_list_when_no_results(tmp_path, monkeypatch):
 
     findings = scan_module.scan_repo("run_1", "demo_repo", str(tmp_path))
     assert findings == []
+
+
+def test_run_semgrep_omits_baseline_flag_by_default(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return SimpleNamespace(stdout=json.dumps({"results": []}), stderr="", returncode=0)
+
+    monkeypatch.setattr(scan_module.subprocess, "run", fake_run)
+
+    scan_module.run_semgrep(".")
+    assert "--baseline-commit" not in captured["cmd"]
+
+
+def test_run_semgrep_passes_baseline_commit_when_given(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return SimpleNamespace(stdout=json.dumps({"results": []}), stderr="", returncode=0)
+
+    monkeypatch.setattr(scan_module.subprocess, "run", fake_run)
+
+    scan_module.run_semgrep(".", baseline_commit="abc123")
+    assert "--baseline-commit" in captured["cmd"]
+    idx = captured["cmd"].index("--baseline-commit")
+    assert captured["cmd"][idx + 1] == "abc123"

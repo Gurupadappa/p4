@@ -32,13 +32,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_REPOS_DIR = REPO_ROOT / "sample_repos"
 
 
-def _run_pipeline(targets: dict[str, str], *, validate: bool, prove: bool) -> list[Finding]:
+def _run_pipeline(
+    targets: dict[str, str], *, validate: bool, prove: bool, baseline_commit: str | None = None
+) -> list[Finding]:
     run_id = new_id("cli")
     findings: list[Finding] = []
     cpg_by_repo = {}
     for name, path in targets.items():
         cpg_by_repo[name] = prepare_repo(name, path)
-        findings.extend(scan_repo(run_id, name, path))
+        findings.extend(scan_repo(run_id, name, path, baseline_commit))
 
     if validate and findings:
         validate_findings(findings, cpg_by_repo)
@@ -85,6 +87,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
             {repo_name: str(target_path)},
             validate=not args.skip_validate,
             prove=args.prove,
+            baseline_commit=args.baseline_commit,
         )
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -181,6 +184,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also generate proof-of-concepts for confirmed findings (extra LLM calls) and, "
         "for P4's own sample repos, attempt real sandboxed exploitation to verify them "
         "(requires Docker; degrades gracefully to unverified without it).",
+    )
+    scan.add_argument(
+        "--baseline-commit",
+        default=None,
+        help="Only report findings not already present at this commit (diff-aware "
+        "scanning). Requires path to be a clean git working directory with this "
+        "commit reachable locally, e.g. --baseline-commit \"$(git merge-base origin/main HEAD)\" "
+        "in a PR job. Without it, every pre-existing finding in the repo is reported "
+        "on every run — fine for a fresh repo, not for adopting P4 into a legacy one.",
     )
     scan.add_argument(
         "--min-severity",

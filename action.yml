@@ -25,6 +25,10 @@ inputs:
     description: "Run Prepare+Scan only, no LLM calls and no API key required. Cannot gate on confirmed findings in this mode — use for smoke-testing the wiring."
     required: false
     default: "false"
+  baseline-commit:
+    description: "Only report findings not already present at this commit (diff-aware scanning), so adopting P4 in a repo with pre-existing findings doesn't fail every PR. Defaults to the PR's base commit on pull_request events; pass '' explicitly to force a full scan. The checkout step needs `fetch-depth: 0` (or at least enough history to reach this commit) for it to be found."
+    required: false
+    default: ""
 
 outputs:
   sarif-path:
@@ -51,12 +55,16 @@ runs:
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        BASELINE_COMMIT: ${{ inputs.baseline-commit || github.event.pull_request.base.sha }}
       run: |
         set +e
         sarif_path="${{ github.workspace }}/p4-results.sarif"
         args=(scan "${{ inputs.path }}" --min-severity "${{ inputs.min-severity }}" --fail-on "${{ inputs.fail-on }}" --format sarif -o "$sarif_path")
         if [ "${{ inputs.skip-validate }}" = "true" ]; then
           args+=(--skip-validate)
+        fi
+        if [ -n "$BASELINE_COMMIT" ]; then
+          args+=(--baseline-commit "$BASELINE_COMMIT")
         fi
         p4 "${args[@]}"
         code=$?

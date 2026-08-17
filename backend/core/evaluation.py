@@ -37,26 +37,30 @@ def compute_report(findings: list[Finding]) -> dict:
     answer_key = _load_answer_key()
     total_true_vulns = sum(1 for e in answer_key.values() if e["ground_truth"] == "true_positive")
 
-    matched_tags: set[str] = set()
+    # Group by planted tag first: with a broad ruleset, several rules can
+    # independently flag the same planted line, and we want to score "did we
+    # catch this vulnerability" (one vote per tag), not "how many rules fired".
+    findings_by_tag: dict[str, list[Finding]] = {}
+    for f in findings:
+        if f.ground_truth_tag and f.ground_truth_tag in answer_key:
+            findings_by_tag.setdefault(f.ground_truth_tag, []).append(f)
+
+    matched_tags = set(findings_by_tag)
     baseline_tp = baseline_fp = 0
     pipeline_tp = pipeline_fp = 0
 
-    for f in findings:
-        entry = answer_key.get(f.ground_truth_tag) if f.ground_truth_tag else None
-        if entry is None:
-            continue
-        matched_tags.add(f.ground_truth_tag)
-        is_true_vuln = entry["ground_truth"] == "true_positive"
+    for tag, tag_findings in findings_by_tag.items():
+        is_true_vuln = answer_key[tag]["ground_truth"] == "true_positive"
 
-        # Baseline: every raw scan finding is treated as a positive prediction
-        # (this is what a pattern-matching-only tool would report).
+        # Baseline: the raw scan flagged this line at all (what a
+        # pattern-matching-only tool would report).
         if is_true_vuln:
             baseline_tp += 1
         else:
             baseline_fp += 1
 
-        # Pipeline: only findings the Validate stage confirmed are positive.
-        if f.verdict == ValidationVerdict.CONFIRMED:
+        # Pipeline: at least one of the findings on this line survived Validate.
+        if any(f.verdict == ValidationVerdict.CONFIRMED for f in tag_findings):
             if is_true_vuln:
                 pipeline_tp += 1
             else:

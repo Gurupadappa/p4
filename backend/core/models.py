@@ -42,7 +42,7 @@ class Finding:
     file: str
     line: int
     rule_id: str
-    vuln_class: str  # injection | insecure_deserialization | ssrf
+    vuln_class: str  # our vuln_class tag, or slugified from Semgrep registry metadata
     severity: str
     message: str
     code_snippet: str

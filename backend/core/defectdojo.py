@@ -29,21 +29,41 @@ OUT_DIR = Path(__file__).resolve().parent.parent.parent / "run_artifacts"
 
 
 def _to_generic_finding(f: Finding) -> dict:
-    return {
+    tags = [f.vuln_class, f.repo, f.rule_id]
+    if f.dedup_group_id:
+        # DefectDojo's Generic Findings Import schema rejects a `duplicate`
+        # field outright (verified against a live instance), so cross-repo
+        # dedup grouping is carried as tags instead of a first-class field.
+        tags.append(f"dedup-{f.dedup_group_id}")
+        tags.append("dedup-primary" if f.is_dedup_primary else "dedup-secondary")
+    finding = {
         "title": f"[{f.vuln_class}] {f.rule_id} in {f.repo}/{f.file}:{f.line}",
-        "description": f"{f.message}\n\nAnalyst rationale: {f.rationale}\n\n"
-        f"Proof of concept:\n{f.poc or 'n/a'}\n\n{f.poc_explanation or ''}",
+        "description": f.message or "No scanner message.",
         "severity": SEVERITY_MAP.get(normalize(f.severity), "Medium"),
         "file_path": f.file,
         "line": f.line,
         "cwe": 0,
-        "date": None,
+        # No `date` key at all: DefectDojo's generic parser unconditionally
+        # runs dateutil.parser.parse() on this field when the key is
+        # present, even if the value is null, and 500s.
         "active": True,
         "verified": True,
         "false_p": False,
-        "duplicate": not f.is_dedup_primary,
-        "tags": [f.vuln_class, f.repo, f.rule_id],
+        "tags": tags,
     }
+    # Map P4's own stage outputs onto DefectDojo's dedicated fields instead
+    # of concatenating everything into `description` — only set a key when
+    # the content actually exists, since a stage that hasn't run yet
+    # (Prove skipped, fix not yet approved) leaves these fields empty.
+    if f.rationale:
+        finding["severity_justification"] = f.rationale
+    if f.poc:
+        finding["steps_to_reproduce"] = f.poc
+    if f.poc_explanation:
+        finding["impact"] = f.poc_explanation
+    if f.fix_patch:
+        finding["mitigation"] = f.fix_patch
+    return finding
 
 
 def build_import_payload(findings: list[Finding]) -> dict:
@@ -57,10 +77,21 @@ def sync_to_defectdojo(run_id: str, findings: list[Finding]) -> dict:
     api_key = os.environ.get("DEFECTDOJO_API_KEY")
 
     if url and api_key:
+        # /api/v2/import-scan/ only accepts multipart/form-data (a plain
+        # JSON body 415s) and needs a product/engagement to attach the scan
+        # to. auto_create_context=true creates them on first sync instead of
+        # requiring them to be pre-provisioned through the DefectDojo UI.
         resp = requests.post(
             f"{url.rstrip('/')}/api/v2/import-scan/",
             headers={"Authorization": f"Token {api_key}"},
-            json=payload,
+            data={
+                "scan_type": "Generic Findings Import",
+                "product_name": "P4",
+                "engagement_name": f"P4 run {run_id}",
+                "product_type_name": "Research and Development",
+                "auto_create_context": "true",
+            },
+            files={"file": (f"{run_id}.json", json.dumps(payload), "application/json")},
             timeout=30,
         )
         resp.raise_for_status()

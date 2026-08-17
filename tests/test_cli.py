@@ -11,7 +11,9 @@ def _stub_pipeline(monkeypatch, findings_by_call):
     semgrep binary or LLM call is needed. `findings_by_call` is mutated
     in place by the fake validate step to set verdicts."""
     monkeypatch.setattr(cli, "prepare_repo", lambda name, path: object())
-    monkeypatch.setattr(cli, "scan_repo", lambda run_id, name, path: list(findings_by_call))
+    monkeypatch.setattr(
+        cli, "scan_repo", lambda run_id, name, path, baseline_commit=None: list(findings_by_call)
+    )
     monkeypatch.setattr(cli, "validate_findings", lambda findings, cpg_by_repo: findings)
     monkeypatch.setattr(cli, "dedupe_findings", lambda findings: findings)
     monkeypatch.setattr(cli, "prove_findings", lambda findings: findings)
@@ -57,6 +59,21 @@ def test_scan_min_severity_filters_out_low_severity_confirmed(tmp_path, monkeypa
 
 def test_scan_nonexistent_path_exits_2():
     assert cli.main(["scan", "/definitely/does/not/exist"]) == 2
+
+
+def test_scan_passes_baseline_commit_through_to_scan_repo(tmp_path, monkeypatch, make_finding):
+    _stub_pipeline(monkeypatch, [make_finding(verdict=ValidationVerdict.FALSE_POSITIVE)])
+    captured = {}
+
+    def fake_scan_repo(run_id, name, path, baseline_commit=None):
+        captured["baseline_commit"] = baseline_commit
+        return []
+
+    monkeypatch.setattr(cli, "scan_repo", fake_scan_repo)
+
+    cli.main(["scan", str(tmp_path), "--baseline-commit", "abc123"])
+
+    assert captured["baseline_commit"] == "abc123"
 
 
 def test_scan_json_output_written_to_file(tmp_path, monkeypatch, make_finding):
