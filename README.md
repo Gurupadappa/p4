@@ -50,7 +50,16 @@ Get a free Gemini API key at [aistudio.google.com/apikey](https://aistudio.googl
 
 ```
 GEMINI_API_KEY=your-key-here
+
 ```
+## To install the frontend packages 
+1. cd frontend
+
+2. npm install 
+
+3. npm run build
+
+
 
 ## Run the dashboard
 
